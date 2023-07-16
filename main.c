@@ -1,165 +1,216 @@
-#include <termios.h>
-#include <sys/ioctl.h>
-#include <signal.h>
 #include <stdlib.h>
-#include <ncurses.h>
-#include <sys/types.h>
-//#include <sys/stat.h>
-#include <fcntl.h>
+#include <curses.h>
+#include <unistd.h>
+#include <string.h>
+#include <dirent.h>
 
-#define MAX_NAME_LEN 15
+char** wnd_print(DIR* dir, WINDOW* wnd, char** names, int** types, int* string) {
 
+	names = (char**)malloc(256);
+	types = (int**)malloc(256);
 
-void sig_winch(int signo) {
-	struct winsize size;
-	ioctl(fileno(stdout), TIOCGWINSZ, (char*)&size);
-	resizeterm(size.ws_row, size.ws_col);
+	struct dirent* data;
+
+	int i = 0;
+
+	while ((256 / sizeof(char*)) > i) {
+		names[i] = malloc(32);
+		i++;
+	}
+	i = 0;
+	rewinddir(dir);
+	while (((data = readdir(dir)) != NULL) && 30 > i) {
+		wmove(wnd, i, 0);
+		wprintw(wnd, data->d_name);
+		if (data->d_type == DT_DIR) {
+			wmove(wnd, i, 55);
+			wprintw(wnd, "dir");
+		}
+		strcpy(names[i], data->d_name);
+		i++;
+	}
+	names = (char**)realloc(names, sizeof(char*) * (i + 1));
+
+	*string = i;
+
+    return names;
 }
-int main(int argc, char** argv) {
 
-	WINDOW* wndtxt;
-	WINDOW* wndnav;
+char** change(DIR** open, WINDOW* ptrtxt, WINDOW* ptrpath, char** ptrnames, int* types, char** buftmp, int ptrstr, int *string) {
 
-	WINDOW* subwndtxt;
-	WINDOW* subwndnav1;
-	WINDOW* subwndnav2;
-	WINDOW* subwndnav3;
+	rewinddir(*open);
+	int size = 0;
+	//char* buf = buftmp;
 
-    int size;
-    char path[100];
-    char txt[2812];
-    char change[2812];
-    int x = 1, y = 1;
-    int fd;
-    int buffer;
+	wclear(ptrtxt);
+	wclear(ptrpath);
+	if (!strncmp((ptrnames)[ptrstr], ".", 2)) {
+		return ptrnames;
+	}
+	system("clear");
+	if (!strncmp((ptrnames)[ptrstr], "..", 2)) {
+		size = strlen(*buftmp) - 1;
+		while ((*buftmp)[size] != '/') {
+			size--;
+		}
+		(*buftmp) = (char*)realloc(*buftmp, sizeof(char) * (size + 1));
+		(*buftmp)[size] = '\0';
+	}
+	else {
+		(*buftmp) = strcat(*buftmp, "/");
+		(*buftmp) = strcat(*buftmp, (ptrnames)[ptrstr]);
+	}
+	closedir(*open);
+	*open = opendir(*buftmp);
+
+	wmove(ptrpath, 1, 1);
+	wprintw(ptrpath, *buftmp);
+	ptrnames = wnd_print(*open, ptrtxt, ptrnames, &types, string);
+	box(ptrpath, '|', '-');
+	wrefresh(ptrpath);
+	wrefresh(ptrtxt);
+
+	return ptrnames;
+}
+
+int main(int args, char** argv) {
 
 	initscr();
-	signal(SIGWINCH, sig_winch);
+	curs_set(FALSE);
+	noecho();
 	cbreak();
-	curs_set(TRUE);
-    noecho();
-    keypad(stdscr, TRUE);
+
+	WINDOW* left = newwin(40, 70, 0, 0);
+	WINDOW* right = newwin(40, 70, 0, 71);
+	WINDOW* ptrpath = left;
+
+	WINDOW* subwndl = derwin(left, 35, 60, 3, 5);
+	WINDOW* subwndr = derwin(right, 35, 60, 3, 5);
+	WINDOW* ptrtxt = subwndl;
+
+	WINDOW* ptrleft = derwin(left, 35, 2, 3, 1);
+	WINDOW* ptrright = derwin(right, 35, 2, 3, 1);
+	WINDOW* ptr = ptrleft;
+
+	keypad(stdscr, TRUE);
 	refresh();
 
-	wndtxt = newwin(30, 100, 2, 4);
-	wndnav = newwin(3, 100, 32, 4);
+    char* bufl = malloc(128);
+	char* bufr = malloc(128);
+	char* buftmp = bufl;;
+	char** namesl;
+	char** namesr;
 
-	box(wndnav, '|', '-');
-	box(wndtxt, '|', '-');
+	int stringl = 0;
+    int stringr = 0;
+	int ptrstr = 0;
+	int key;
+	int* typel;
+	int* typer;
 
-	subwndtxt = derwin(wndtxt, 29, 97, 1, 2);
-	subwndnav1 = derwin(wndnav, 2, 33, 1, 1);
-	subwndnav2 = derwin(wndnav, 2, 33, 1, 34);
-	subwndnav3 = derwin(wndnav, 2, 32, 1, 67);
+	getcwd(bufl, 128);
+	getcwd(bufr, 128);
 
-	wprintw(subwndtxt, "Wellcome to my file editor!\n");
-	wprintw(subwndnav1, "Press Esc for exit\n");
-	wprintw(subwndnav2, "Press S for save\n");
-	wprintw(subwndnav3, "Press L for open file and C for change\n");
+	DIR* open = opendir(bufl);
+	
+	box(left, '|', '-');
+	box(right, '|', '-');
+
+	wmove(left, 1, 1);
+	wprintw(left, bufl);
+
+	wmove(right, 1, 1);
+	wprintw(right, bufr);
+
+	namesr = wnd_print(open, subwndr, namesr, &typer, &stringr);
+	namesl = wnd_print(open, subwndl, namesl, &typel, &stringl);
+	
+	wrefresh(left);
+	wrefresh(right);
+	wrefresh(subwndl);
+	wrefresh(subwndr);
+
+	while (true) {
+		wmove(ptr, ptrstr, 0);
+		wprintw(ptr, "->\n");
+        wrefresh(ptr);
+
+        key = getch();
 
 
-    while (TRUE) {
+        switch (key) {
 
-        wmove(subwndtxt, y, x);
-        wrefresh(wndtxt);
-        wrefresh(wndnav);
-        wrefresh(subwndtxt);
-
-        buffer = getch();
-        
-
-        switch (buffer) {
-
-            case KEY_UP:
-                if (y != 0) {
-                    y--;
-                }
-                else
-                    y = 27;
-                wmove(subwndtxt, y, x);
-                break;
-            case KEY_DOWN:
-                if (y != 27) {
-                    y++;
-                }
-                else
-                    y = 0;
-                wmove(subwndtxt, y, x);
-                break;
+        case KEY_UP:
+			wmove(ptr, ptrstr, 0);
+			wprintw(ptr, "  ");
+			if (ptrstr != 0) {
+				ptrstr--;
+			}
+			else if (ptr == ptrleft) {
+				ptrstr = stringl - 1;
+			}
+			else {
+				ptrstr = stringr - 1;
+			}
+        break;
+        case KEY_DOWN:
+			wmove(ptr, ptrstr, 0);
+			wprintw(ptr, "  ");
+			if (ptr == ptrleft){
+				if (ptrstr != stringl - 1) 
+					ptrstr++;
+				else
+					ptrstr = 0;
+			}
+			else{
+				if (ptrstr != stringr - 1) 
+					ptrstr++;
+				else
+					ptrstr = 0;
+				}
+        break;
             case KEY_LEFT:
-                if (x != 0) {
-                    x--;
-                }
-                else
-                    x = 96;
-                wmove(subwndtxt, y, x);
+			case KEY_RIGHT:
+				wmove(ptr, ptrstr, 0);
+				wprintw(ptr, "  ");
+				wrefresh(ptr);
+				ptrstr = 0;
+				if (ptr == ptrleft) {
+					ptr = ptrright;
+				}
+				else {
+					ptr = ptrleft;
+				}
                 break;
-            case KEY_RIGHT:
-                if (x != 96) {
-                    x++;
-                }
-                else
-                    x = 0;
-                wmove(subwndtxt, y, x);
-                break;
-            case 108:
-            case 76: // L
-                wclear(subwndtxt);
-                wmove(subwndtxt, 1, 1);
-                wprintw(subwndtxt, "Enter the path and name (/path/name.txt)\n");
-                wmove(subwndtxt, 2, 1);
-                echo();
-                wrefresh(subwndtxt);
-                wgetstr(subwndtxt, path);
-                fd = open(path, O_RDWR);
-                if (!fd) {
-                    break;
-                }
-                read(fd, txt, sizeof(txt) * sizeof(char));
+			case 10: //ENTER
+					if (ptr == ptrleft) {
+						namesl = change(&open, subwndl, left, namesl, typel, &bufl, ptrstr, &stringl);
+					}
+					else{
+						namesr = change(&open, subwndr, right, namesr, typer,  &bufr, ptrstr, &stringr);
+					}
+					if (namesl == namesr)
+					{
+						delwin(left);
+						delwin(right);
+						refresh();
+						endwin();
+						system("clear");
+						
+						printf("error: namesl=%p namesr=%p\n", namesl, namesr);
 
-                wclear(subwndtxt);
-                wmove(subwndtxt, 0, 0);
-                wprintw(subwndtxt, txt);
-                noecho();
-                wrefresh(subwndtxt);
+						exit(EXIT_SUCCESS);
+					}
+				break;
+        case 27: //ESC
+            delwin(left);
+            delwin(right);
+            refresh();
+            endwin();
+			system("clear");
+            exit(EXIT_SUCCESS);
+        }        
+	}
 
-                break;
-            case 27: //ESC
-                delwin(subwndtxt);
-                delwin(wndtxt);
-                refresh();
-                endwin();
-                exit(EXIT_SUCCESS);
-            case 99:
-            case 67: //C
-
-                echo();
-                keypad(stdscr,FALSE);
-                nocbreak();
-
-                wgetstr(subwndtxt, change);
-                lseek(fd, 10 * y + x, SEEK_SET);
-                size = strcspn(change, "\n");
-                change[size] = '\0';
-
-                cbreak();
-                keypad(stdscr, TRUE);
-                noecho();
-                wrefresh(subwndtxt);
-
-                for (int i = 0; i < size; i++) {
-                    txt[y * 10 + x + i] = change[i];
-                }
-                break;
-                
-            case 115:
-            case 83: //S 
-                fsync(fd);
-                lseek(fd, 0, SEEK_SET);
-                size = strcspn(txt, "\0");
-                write(fd, txt, size);
-                break;
-
-        }
-    }
-}
+	return 0;
+}
