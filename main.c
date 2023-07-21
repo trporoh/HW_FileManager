@@ -15,6 +15,7 @@ void sig_winch(int signo) {
 	ioctl(fileno(stdout), TIOCGWINSZ, (char*)&size);
 	resizeterm(size.ws_row, size.ws_col);
 }
+
 int main(int argc, char** argv) {
 
 	WINDOW* wndtxt;
@@ -32,6 +33,7 @@ int main(int argc, char** argv) {
     int x = 1, y = 1;
     int fd;
     int buffer;
+    int index;
 
 	initscr();
 	signal(SIGWINCH, sig_winch);
@@ -54,8 +56,8 @@ int main(int argc, char** argv) {
 
 	wprintw(subwndtxt, "Wellcome to my file editor!\n");
 	wprintw(subwndnav1, "Press Esc for exit\n");
-	wprintw(subwndnav2, "Press S for save\n");
-	wprintw(subwndnav3, "Press L for open file and C for change\n");
+	wprintw(subwndnav2, "Press F5 for save\n");
+	wprintw(subwndnav3, "Press F2 for open file\n");
 
 
     while (TRUE) {
@@ -102,9 +104,9 @@ int main(int argc, char** argv) {
                     x = 0;
                 wmove(subwndtxt, y, x);
                 break;
-            case 108:
-            case 76: // L
+            case 266: //F2
                 wclear(subwndtxt);
+                system("clear");
                 wmove(subwndtxt, 1, 1);
                 wprintw(subwndtxt, "Enter the path and name (/path/name.txt)\n");
                 wmove(subwndtxt, 2, 1);
@@ -117,10 +119,10 @@ int main(int argc, char** argv) {
                 }
                 read(fd, txt, sizeof(txt) * sizeof(char));
 
-                wclear(subwndtxt);
-                wmove(subwndtxt, 0, 0);
-                wprintw(subwndtxt, txt);
                 noecho();
+                wclear(subwndtxt);
+                system("clear");
+                wprintw(subwndtxt, txt);
                 wrefresh(subwndtxt);
 
                 break;
@@ -130,36 +132,28 @@ int main(int argc, char** argv) {
                 refresh();
                 endwin();
                 exit(EXIT_SUCCESS);
-            case 99:
-            case 67: //C
-
-                echo();
-                keypad(stdscr,FALSE);
-                nocbreak();
-
-                wgetstr(subwndtxt, change);
-                lseek(fd, 10 * y + x, SEEK_SET);
-                size = strcspn(change, "\n");
-                change[size] = '\0';
-
-                cbreak();
-                keypad(stdscr, TRUE);
-                noecho();
-                wrefresh(subwndtxt);
-
-                for (int i = 0; i < size; i++) {
-                    txt[y * 10 + x + i] = change[i];
-                }
-                break;
                 
-            case 115:
-            case 83: //S 
+            case 269: //Save by F3 
                 fsync(fd);
                 lseek(fd, 0, SEEK_SET);
                 size = strcspn(txt, "\0");
                 write(fd, txt, size);
                 break;
-
+            default:
+                if (buffer == 263) {
+                    buffer = 32;
+                    x--;
+                    wmove(subwndtxt, y, x);
+                    txt[y * 97 + x] = buffer;
+                    wprintw(subwndtxt, &buffer);
+                }
+                else {
+                    wmove(subwndtxt, y, x);
+                    txt[y * 97 + x] = buffer;
+                    wprintw(subwndtxt, &buffer);
+                    x++;
+                }
+                break;
         }
     }
-}
+}
