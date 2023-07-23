@@ -190,7 +190,7 @@ char** wnd_print(DIR* dir, WINDOW* wnd, char** names, char* types, int* string) 
 			wmove(wnd, i, 55);
 			wprintw(wnd, "dir");
 		}
-		strcpy(&types[i], &(data->d_name));
+		strcpy(&types[i], &(data->d_type));
 		strcpy(names[i], data->d_name);
 		i++;
 	}
@@ -227,10 +227,12 @@ char** change(DIR** open, WINDOW* ptrtxt, WINDOW* ptrpath, char** ptrnames, char
 	closedir(*open);
 	*open = opendir(*buftmp);
 
+	ptrnames = wnd_print(*open, ptrtxt, ptrnames, types, string);
+
 	wmove(ptrpath, 1, 1);
 	wprintw(ptrpath, *buftmp);
-	ptrnames = wnd_print(*open, ptrtxt, ptrnames, &types, string);
 	box(ptrpath, '|', '-');
+
 	wrefresh(ptrpath);
 	wrefresh(ptrtxt);
 
@@ -241,10 +243,11 @@ void editor(char* buf, char* name) {
 
 	int fd;
 	int x = 1, y = 1;
-	char* path;
+	char* path = malloc(strlen(buf) + strlen(name) + 1);
 	char txt[2812];
 
-	strcmp(path, buf);
+	strcpy(path, buf);
+	strcat(path, "/");
 	strcat(path, name);
 	system("clear");
 
