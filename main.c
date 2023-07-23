@@ -140,8 +140,27 @@ int main(int args, char** argv) {
 						editor(bufl, namesl[ptrstr]);
 					}
 					else {
+
 						wait(NULL);
+						wclear(left);
+						wclear(right);
+						wclear(subwndl);
+						wclear(subwndr);
+
 						system("clear");
+
+						box(left, '|', '-');
+						box(right, '|', '-');
+
+						wnd_print(open, subwndr, namesr, typer, &stringr);
+						wnd_print(open, subwndl, namesl, typel, &stringl);
+						
+						wmove(left, 1, 1);
+						wprintw(left, bufl);
+
+						wmove(right, 1, 1);
+						wprintw(right, bufr);
+
 						wrefresh(left);
 						wrefresh(right);
 						wrefresh(subwndl);
@@ -254,7 +273,7 @@ void editor(char* buf, char* name) {
 	curs_set(TRUE);
 	refresh();
 
-	WINDOW* editor_window = newwin(30, 100, 2, 4);
+	WINDOW* editor_window = newwin(40, 100, 2, 4);
 	WINDOW* editor_text_subwindow = derwin(editor_window, 27, 97, 1, 1);
 
 	fd = open(path, O_RDWR);
@@ -321,6 +340,7 @@ void editor(char* buf, char* name) {
 		case 27: //ESC
 			delwin(editor_text_subwindow);
 			delwin(editor_window);
+			curs_set(FALSE);
 			refresh();
 			exit(EXIT_SUCCESS);
 
